@@ -4,7 +4,7 @@ module.exports = {
     name: 'guildMemberAdd',
     execute(member) {
         try {
-            const welcomeChannelId = '1329072090535559211';
+            const welcomeChannelId = '1315022354643943455';
             const channel = member.guild.channels.cache.get(welcomeChannelId);
             const getRole = '1317000275378176010';
             const getRules = '1316931733882535947';
