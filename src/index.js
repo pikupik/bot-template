@@ -1,44 +1,80 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const dotenv = require('dotenv');
+const path = require('path'); 
+
 const client = new Client({ 
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
     ]
-})
+});
 
-
-//memanggil dotenv module
 dotenv.config();
-
-//membuat token yang diambil dari .env
 const token = process.env.DISCORD_TOKEN;
-
-//prefix yg digunakan
 const PREFIX = '/';
 
-// Meload Commands (map)
-client.commands = new Map();
-const loadCommands = (folderPath, client) => {
-  const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
 
-  for (const file of commandFiles) {
-    const command = require(`${folderPath}/${file}`);
-    if (command.name) {
-      client.commands.set(command.name, command);
-    } else {
-      console.error(`Error loading command from file ${file}: Missing name property.`);
-    }
+client.events = new Map();
+
+const loadEvents = (folderPath, client) => {
+ const eventsPath = path.join(__dirname, folderPath);
+
+ if (!fs.existsSync(eventsPath)) {
+  console.warn(`Warning: Folder ${folderPath} tidak ditemukan`);
+  return;
+ }
+
+ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+ for (const file of eventFiles) {
+  try {
+   const event = require(path.join(eventsPath, file));
+   if (event.name) {
+    client.events.set(event.name, event);
+    client.on(event.name, (...args) => event.execute(...args));
+    console.log(`Event loaded: ${event.name}`);
+   }
+  } catch (error) {
+   console.error(`Error loading event file ${file}:`, error);
   }
+ }
+}
+
+loadEvents('./events', client);
+
+
+
+client.commands = new Map();
+// Perbaikan fungsi loadCommands dengan path yang benar
+const loadCommands = (folderPath, client) => {
+    const commandsPath = path.join(__dirname, folderPath);
+    
+    // Periksa apakah folder exists
+    if (!fs.existsSync(commandsPath)) {
+        console.warn(`Warning: Folder ${folderPath} tidak ditemukan`);
+        return;
+    }
+
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+    for (const file of commandFiles) {
+        try {
+            const command = require(path.join(commandsPath, file));
+            if (command.name) {
+                client.commands.set(command.name, command);
+                console.log(`Command loaded: ${command.name}`);
+            } else {
+                console.error(`Error loading command from file ${file}: Missing name property.`);
+            }
+        } catch (error) {
+            console.error(`Error loading command file ${file}:`, error);
+        }
+    }
 };
 
-// Memanggil seluruh commands yang berada di folder economy
-// loadCommands('./economy', client);
-
-//membuat function message agar terhubung tiap tiap folder
 client.on('messageCreate', async (message) => {
     try {
         if (!message.content.startsWith(PREFIX) || message.author.bot) return;
@@ -49,24 +85,20 @@ client.on('messageCreate', async (message) => {
         if (!client.commands.has(commandName)) return;
 
         const command = client.commands.get(commandName);
-
         command.execute(message, args);
 
     } catch (error) {
         console.error('Error in messageCreate event:', error);
+        message.reply('Terjadi kesalahan saat menjalankan command.').catch(console.error);
     }
 });
 
-
-//apakah client bot sudah siap?
 client.on('ready', () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`Logged in as ${client.user.tag}!`);
 });
 
-//Jika ada error di client bot maka ini tampil
 client.on('error', (error) => {
-  console.error('Unhandled error:', error);
+    console.error('Unhandled error:', error);
 });
 
-//menjalankan bot
 client.login(token);
